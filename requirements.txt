@@ -1,0 +1,12 @@
+huggingface
+datasets
+openai
+qdrant-client
+langchain
+langchain-community
+langchain-openai
+cohere
+click
+streamlit
+watchdog
+altair<5
