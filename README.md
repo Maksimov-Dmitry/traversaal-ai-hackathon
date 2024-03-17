@@ -1,3 +1,9 @@
+# Hotel Search Assistant
+
+Here we present the smart AI chatbot (Agent), that helps user to find the most suited hotels and relevant information about them, given text query and optional search fields.
+We employ OpenAI GPT 4.0 as the backbone for our Agent, create a vector Qdrant DB of hotels enriched by TripAdvisor's features, and utilize an external source of information - Traversaal AI.
+Finally, we deploy our model using Streamlit framework.
+
 ## Data Enrichment
 
 In the original Hotels dataset, we sorted the positive (rating $\ge$ 4.0) and negative (rating $<$ 4.0) reviews by length, took the top 6 (by length) positive and top 6 negative reviews, and used OpenAI GPT 4.0 to summarize the content of the reviews, specifying strong and weak points mentioned in the comments. 
