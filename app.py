@@ -16,7 +16,7 @@ collection_name = 'hotels'
 
 st.set_page_config(page_title="Hotels search chatbot", page_icon="⭐")
 st.header('Hotels search chatbot')
-st.write('[![view source code ](https://img.shields.io/badge/view_source_code-gray?logo=github)](https://github.com/shashankdeshpande/langchain-chatbot/blob/master/pages/2_%E2%AD%90_context_aware_chatbot.py)')
+st.write('[![view source code and description](https://img.shields.io/badge/view_source_code-gray?logo=github)](https://github.com/Maksimov-Dmitry/traversaal-ai-hackathon)')
 
 st.sidebar.header('Choose your preferences')
 n_hotels = st.sidebar.number_input('Number of hotels', min_value=1, max_value=10, value=3)

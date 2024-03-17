@@ -1,6 +1,8 @@
 ## Data Enrichment
 
-In the original Hotels dataset, we sorted the positive (rating $\ge$ 4.0) and negative (rating $<$ 4.0) reviews by length, took the top 6 (by length) positive and top 6 negative reviews, and used OpenAI GPT 4.0 to summarize the content of the reviews, specifying strong and weak points mentioned in the comments. 
+We have decided to collect the clean description of the hotels, their ratings, and amenities, rather than the raw reviews. This is due to the fact that the raw reviews are not always informative and can be biased.
+
+In the original Hotels dataset, we sorted the positive (rating $\ge$ 4.0) and negative (rating $<$ 4.0) reviews by length, took the top 6 (by length) positive and top 6 negative reviews, and used OpenAI GPT 4.0 to summarize the content of the reviews, specifying strong and weak points mentioned in the reviews. 
 
 In addition to the dataset provided by the Gen AI Hackathon, we enriched our data using the TripAdvisor API [link](https://tripadvisor-content-api.readme.io/reference/overview). We gathered all present amenities (e.g. availability of different features in the hotel like pet-friendly atmosphere or WIFI availability) and rankings, distributed by different aspects of the hotel: location assessment, sleep quality, room assessment, service quality, and cleanliness. 
 
@@ -47,4 +49,20 @@ To add new data to the Qdrant vector database, you need to run the following com
 python src/create_vector_db.py
 ~~~
 
-This script will run the whole pipeline of Data Enrichment.
+This script will run the whole pipeline of Data Enrichment. It will collect the data from the TripAdvisor API, summarize the reviews, and create the embeddings for the text. Then it will store the data in the Qdrant vector database.
+
+create_vector_db.py has the following parameters:
+- `--dataset-path` - the path to the dataset, the dataset can be csv or huggingface dataset
+- `--db-path` - the path to the Qdrant vector database
+- `--is-hf` - the flag to specify if the dataset is huggingface dataset
+- `--collection-name` - the name of the collection in the Qdrant vector database. The default value is `hotels`.
+
+and some other parameters.
+
+if you want to create the new collection of the embeddings, you need to run the following command:
+
+~~~
+python src/create_vector_db.py --collection-name=any_name --dataset-path=any_path
+~~~
+
+This will create the new collection with the name `any_name` and `any_path` is the path to the dataset.
