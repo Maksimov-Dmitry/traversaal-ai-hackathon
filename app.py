@@ -29,7 +29,7 @@ def get_db_client(path='data/db'):
 
 
 def add_new_info(chat_history, queries):
-    """After the user has changed the parameters(city, price, rating), the chatbot shoud get the information about it.
+    """After the user has changed any parameters (city, price, rating), we notify the Agent about it.
         The information is added to the chat history.
     Args:
         chat_history: history of the chat
@@ -41,7 +41,7 @@ def add_new_info(chat_history, queries):
 
 
 def check_params(params):
-    """Check if the user has changed the parameters(city, price, rating).
+    """Check if the user has changed the parameters (city, price, rating).
         If the user has changed the parameters, the corresponding queries are created.
 
     Args:
@@ -70,8 +70,8 @@ def check_params(params):
 
 
 def get_parameters(db_client):
-    """Get the parameters from the user.
-        We are using the data base to get the unique values for the city and the price.
+    """Get the parameters from the user (city, price, rating),
+         The provided metadata (in case it was provided by the user) is used in the MixedRetrieval from Qdrant vector DB
     """
     points, _ = db_client.scroll(
         collection_name=collection_name,
@@ -95,7 +95,8 @@ def get_parameters(db_client):
 
 class HotelsSearchChatbot:
     """
-        The Agent class is responsible for the chatbot logic. The Agen decides what to do based on the user's query and what to answer.
+        This is the Agent class. It is responsible for the decision-making during conversation with the user.
+        Based on the user's query, the Agent decides which action to take and how to present result to the user.
     """
     def __init__(self, db_client):
         streamlit_utils.configure_api_keys()
@@ -110,10 +111,10 @@ class HotelsSearchChatbot:
         self.db_client = db_client
 
     def _traversialai(self, query):
-        """Method to get the information from the internet using the Traversaal.ai.
+        """Acquiring information from the internet using the Traversaal.ai.
 
         Args:
-            query (str): query to get the information from the internet
+            query (str): search query
 
         Returns:
             str: information from the internet based on the query
@@ -133,14 +134,16 @@ class HotelsSearchChatbot:
             return None
 
     def _get_action(self, text):
-        """Method to get the action and the action input from the response of the Agent.
-            This action and action input are used to decide what to do next.
+        """Parse (read) the action and the action input from the response of the Agent
+        (after he made a decision what to do).
+        'action' and 'action_input' indicate whether we need to query additional tools
+        (vector DB, Traversaal AI) and how.
 
         Args:
             text (str): response of the Agent, which contains the action and the action input
 
         Returns:
-            tuple: action and action input
+            tuple: action, action input
         """
         action_pattern = r"Action:\s*(.*)\n"
         action_input_pattern = r"Action Input:\s*(.*)"
@@ -153,14 +156,14 @@ class HotelsSearchChatbot:
         return action, action_input
 
     def _make_action(self, action, action_input, retriever, chain, chat_history, config, retriever_params):
-        """Method, which makes the action with corresponding action input. The action can be:
-            'nothing' - agent don't need any additional information
-            'hotels_data_base' - agent needs to get the information from the hotels data base
-            'ares_api' - agent needs to get the information from the internet using the Traversaal.ai
+        """Take the action corresponding to 'action' and 'action input'. The 'action' can be one of the following:
+            'nothing' - Agent is capable of dealing on its own without use of additional tools,
+            'hotels_data_base' - Agent decides to get the information from the hotels vector DB,
+            'ares_api' - Agent requires additional information from the internet using the Traversaal.ai.
 
         Args:
             action (str): action to make
-            action_input (str): action input
+            action_input (str): action input (formulated by Agent search query)
             retriever (Retriever): Retriever object
             chain (Chain): Chain object
             chat_history (ChatMessageHistory): history of the chat
