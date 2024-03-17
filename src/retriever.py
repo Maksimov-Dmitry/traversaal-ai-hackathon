@@ -4,7 +4,7 @@ from qdrant_client import models
 from src.prompts import RAG_CONTEXT_TEMPLATE
 
 
-class RAG:
+class Retriever:
     def __init__(self, embedding_model, llm_model, rerank_model, db_client, db_collection='hotels'):
         self.db_collection = db_collection
         self.db_client = db_client

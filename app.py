@@ -1,6 +1,6 @@
 from src import streamlit_utils
 from src.prompts import AGENT_SYSTEM_PROMPT, AGENT_USER_PROMPT, RAG_USER_PROMPT, TRAVERSIALAI_USER_PROMPT
-from src.rag import RAG
+from src.retriever import Retriever
 
 import streamlit as st
 
@@ -29,25 +29,40 @@ def get_db_client(path='data/db'):
 
 
 def add_new_info(chat_history, queries):
+    """After the user has changed the parameters(city, price, rating), the chatbot shoud get the information about it.
+        The information is added to the chat history.
+    Args:
+        chat_history: history of the chat
+        queries (list): list of queries that the user has changed
+    """
     for query in queries:
         chat_history.add_user_message(query)
         chat_history.add_ai_message('Ok, got it!')
 
 
 def check_params(params):
+    """Check if the user has changed the parameters(city, price, rating).
+        If the user has changed the parameters, the corresponding queries are created.
+
+    Args:
+        params (dict): dictionary with the parameters
+
+    Returns:
+        list: list of queries that the user has changed
+    """
     changed_params = []
 
     if 'prev_params' not in st.session_state:
         st.session_state.prev_params = {'city': '<BLANK>', 'price': '<BLANK>', 'rating': '<BLANK>'}
 
     if st.session_state.prev_params['city'] != params['city']:
-        changed_params.append(f'city: I want to find hotels in {params["city"]}' if params['city'] else 'I want to find hotels in any city')
+        changed_params.append(f'I want to find hotels in {params["city"]}' if params['city'] else 'I want to find hotels in any city')
 
     if st.session_state.prev_params['price'] != params['price']:
-        changed_params.append(f'price: I want to find hotels in price range {params["price"]}' if params['price'] else 'I want to find hotels in any price range')
+        changed_params.append(f'I want to find hotels in price range {params["price"]}' if params['price'] else 'I want to find hotels in any price range')
 
     if st.session_state.prev_params['rating'] != params['rating']:
-        changed_params.append(f'rating: I want to find hotels with rating greater than {params["rating"]}')
+        changed_params.append(f'I want to find hotels with rating greater than {params["rating"]}')
 
     st.session_state.prev_params = params
 
@@ -55,6 +70,9 @@ def check_params(params):
 
 
 def get_parameters(db_client):
+    """Get the parameters from the user.
+        We are using the data base to get the unique values for the city and the price.
+    """
     points, _ = db_client.scroll(
         collection_name=collection_name,
         limit=1e9,
@@ -76,6 +94,9 @@ def get_parameters(db_client):
 
 
 class HotelsSearchChatbot:
+    """
+        The Agent class is responsible for the chatbot logic. The Agen decides what to do based on the user's query and what to answer.
+    """
     def __init__(self, db_client):
         streamlit_utils.configure_api_keys()
 
@@ -89,6 +110,14 @@ class HotelsSearchChatbot:
         self.db_client = db_client
 
     def _traversialai(self, query):
+        """Method to get the information from the internet using the Traversaal.ai.
+
+        Args:
+            query (str): query to get the information from the internet
+
+        Returns:
+            str: information from the internet based on the query
+        """
         url = "https://api-ares.traversaal.ai/live/predict"
 
         payload = {"query": [query]}
@@ -104,6 +133,15 @@ class HotelsSearchChatbot:
             return None
 
     def _get_action(self, text):
+        """Method to get the action and the action input from the response of the Agent.
+            This action and action input are used to decide what to do next.
+
+        Args:
+            text (str): response of the Agent, which contains the action and the action input
+
+        Returns:
+            tuple: action and action input
+        """
         action_pattern = r"Action:\s*(.*)\n"
         action_input_pattern = r"Action Input:\s*(.*)"
 
@@ -114,13 +152,27 @@ class HotelsSearchChatbot:
         action_input = action_input_match.group(1) if action_input_match else None
         return action, action_input
 
-    def _make_action(self, action, action_input, rag, chain, chat_history, config, rag_params):
+    def _make_action(self, action, action_input, retriever, chain, chat_history, config, retriever_params):
+        """Method, which makes the action with corresponding action input. The action can be:
+            'nothing' - agent don't need any additional information
+            'hotels_data_base' - agent needs to get the information from the hotels data base
+            'ares_api' - agent needs to get the information from the internet using the Traversaal.ai
+
+        Args:
+            action (str): action to make
+            action_input (str): action input
+            retriever (Retriever): Retriever object
+            chain (Chain): Chain object
+            chat_history (ChatMessageHistory): history of the chat
+            config (dict): handlers for a LangChain invoke method
+            retriever_params (dict): parameters for the Retriever
+        """
         if action == 'nothing':
             st.markdown(action_input)
             return action_input
 
         if action == 'hotels_data_base':
-            context = rag(action_input, top_k=n_hotels, **rag_params)
+            context = retriever(action_input, top_k=n_hotels, **retriever_params)
             chat_history.add_user_message(RAG_USER_PROMPT.format(context=context, query=action_input))
             response = chain.invoke({"messages": chat_history.messages}, config)
             chat_history.messages.pop()
@@ -137,8 +189,8 @@ class HotelsSearchChatbot:
 
     @st.cache_resource
     def setup_chain(_self):
-        rag = RAG(embedding_model=_self.embeedings_model, llm_model=_self.llm_model,
-                  rerank_model=_self.rerank_model, db_client=_self.db_client, db_collection=collection_name)
+        retriever = Retriever(embedding_model=_self.embeedings_model, llm_model=_self.llm_model,
+                              rerank_model=_self.rerank_model, db_client=_self.db_client, db_collection=collection_name)
 
         chat_history = ChatMessageHistory()
         prompt = ChatPromptTemplate.from_messages(
@@ -153,11 +205,11 @@ class HotelsSearchChatbot:
         chat = ChatOpenAI(model=_self.llm_model, temperature=_self.temperature, streaming=True)
         chain = prompt | chat
 
-        return chain, chat_history, rag
+        return chain, chat_history, retriever
 
     @streamlit_utils.enable_chat_history
     def main(self, params):
-        chain, chat_history, rag = self.setup_chain()
+        chain, chat_history, retriever = self.setup_chain()
         user_query = st.chat_input(placeholder="Ask me anything!")
         if user_query:
             streamlit_utils.display_msg(user_query, 'user')
@@ -172,7 +224,7 @@ class HotelsSearchChatbot:
             with st.chat_message("assistant"):
                 st_cb = streamlit_utils.StreamHandler(st.empty())
                 response = self._make_action(action, action_input,
-                                             rag, chain, chat_history, {"callbacks": [st_cb]}, params)
+                                             retriever, chain, chat_history, {"callbacks": [st_cb]}, params)
                 chat_history.add_user_message(user_query)
                 if response is None:
                     response = 'Sorry, I cannot help you with it. Could you rephrase your question?'
