@@ -78,7 +78,8 @@ def create_reviews_symmary(df, model, hotels, pos_rate=4.0, neg_rate=4.0, n_revi
 
 
 def _get_loc_id(hotel):
-    """In order to get the hotel info, we need to get the location id first.
+    """ Given a hotel name, receive location id.
+    In order to get the hotel info, we need to get the location id first.
 
     Args:
         hotel (str): hotel name
@@ -101,7 +102,7 @@ def _get_loc_id(hotel):
 
 def get_hotel_info(hotel):
     """Get hotel info from TripAdvisor.
-        Following information is retrieved from the TripAdvisor API:
+        The following information is retrieved using the TripAdvisor API:
             - rank
             - ratings distributions
             - subratings
@@ -142,14 +143,14 @@ def get_hotel_info(hotel):
 
 
 def get_desc(hotel, data):
-    """Create a description of the hotel based on the retrieved data from TripAdvisor.
+    """Create a text description of the hotel based on the retrieved data from TripAdvisor.
 
     Args:
         hotel (str): hotel name
         data (dict): hotel info
     
     Returns:
-        str: hotel description
+        str: hotel text description
     """
     rating = "Rating: "+str(data[hotel]['rank'])+". "
 
@@ -182,7 +183,7 @@ def get_desc(hotel, data):
 
 
 def get_payload(hotel, df):
-    """Create a metadata which will be collected in the database.
+    """Create a metadata which will be stored in the database.
 
     Args:
         hotel (str): hotel name

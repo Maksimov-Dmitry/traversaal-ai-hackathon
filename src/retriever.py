@@ -6,7 +6,7 @@ from src.prompts import RAG_CONTEXT_TEMPLATE
 
 class Retriever:
     """Retriever class for retrieving documents from the database
-        For retrieving documents, the follwing steps are performed:
+        For retrieving documents, the following steps are performed:
             1. Create an embedding for the query
             2. Get n documents from the database based on the query and filters (Mixed retrieval)
             3. Rerank the documents based on the query and select top k documents, where k << n (ReRanking)
@@ -68,7 +68,7 @@ class Retriever:
         return context
 
     def _reranker(self, docs, query, top_k):
-        """Rerank the retrived documents based on the query and select top k documents
+        """Rerank the retrieved documents using Cohere based on the query and select top k documents
 
         Args:
             docs (list): list of documents
