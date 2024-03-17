@@ -38,6 +38,19 @@ def _concat_reviews(df):
 
 
 def create_reviews_symmary(df, model, hotels, pos_rate=4.0, neg_rate=4.0, n_reviews=6):
+    """Create a summary of reviews for each hotel, based on the most positive and most negative reviews.
+
+    Args:
+        df (pd.DataFrame): hotels dataset
+        model (str): OpenAI model name
+        hotels (list): list of hotels to create summaries for
+        pos_rate (float): minimum positive rate, inclusive
+        neg_rate (float): maximum negative rate, exclusive
+        n_reviews (int): number of reviews to consider for each category
+
+    Returns:
+        dict: hotel name -> reviews summary
+    """
     df['review_text_len'] = df.review_text.str.len().fillna(value=0)
     df['review_title_len'] = df.review_title.str.len().fillna(value=0)
 
@@ -65,6 +78,14 @@ def create_reviews_symmary(df, model, hotels, pos_rate=4.0, neg_rate=4.0, n_revi
 
 
 def _get_loc_id(hotel):
+    """In order to get the hotel info, we need to get the location id first.
+
+    Args:
+        hotel (str): hotel name
+
+    Returns:
+        str: location id
+    """
     url = "https://api.content.tripadvisor.com/api/v1/location/search?key={key}&searchQuery={hotel}&category=hotels&language=en"
     headers = {"accept": "application/json"}
 
@@ -79,6 +100,19 @@ def _get_loc_id(hotel):
 
 
 def get_hotel_info(hotel):
+    """Get hotel info from TripAdvisor.
+        Following information is retrieved from the TripAdvisor API:
+            - rank
+            - ratings distributions
+            - subratings
+            - amenities
+
+    Args:
+        hotel (str): hotel name
+
+    Returns:
+        dict: hotel info
+    """
     url = "https://api.content.tripadvisor.com/api/v1/location/{loc_id}/details?key={key}&language=en&currency=USD"
     headers = {"accept": "application/json"}
 
@@ -108,6 +142,15 @@ def get_hotel_info(hotel):
 
 
 def get_desc(hotel, data):
+    """Create a description of the hotel based on the retrieved data from TripAdvisor.
+
+    Args:
+        hotel (str): hotel name
+        data (dict): hotel info
+    
+    Returns:
+        str: hotel description
+    """
     rating = "Rating: "+str(data[hotel]['rank'])+". "
 
     distr_ranks = "Rating distribution "
@@ -139,6 +182,15 @@ def get_desc(hotel, data):
 
 
 def get_payload(hotel, df):
+    """Create a metadata which will be collected in the database.
+
+    Args:
+        hotel (str): hotel name
+        df (pd.DataFrame): hotels dataset
+
+    Returns:
+        dict: metadata
+    """
     temp = df[df.hotel_name.eq(hotel)]
     rating = temp.rating_value.value_counts().index[0]
     city = temp.locality.value_counts().index[0]
@@ -167,6 +219,7 @@ def create_vector_db(dataset_path, is_hf, db_path, collection_name, embeddings_m
 
     df = get_df(dataset_path, is_hf)
 
+    # Create a collection if it does not exist and filter out hotels that are already in the collection
     qdrant_client = QdrantClient(path=db_path)
     if not qdrant_client.collection_exists(collection_name):
         qdrant_client.create_collection(
@@ -184,15 +237,18 @@ def create_vector_db(dataset_path, is_hf, db_path, collection_name, embeddings_m
         hotels = set(df.hotel_name.unique()) - set([doc.payload['hotel_name'] for doc in docs])
     if len(hotels) == 0:
         return
-    hotels = list(hotels)[:20]
+
+    # Create reviews summary using OpenAI
     reviews_summary = create_reviews_symmary(df, reviews_model, hotels)
     save_json(reviews_summary, REVIEW_SUMMARIES_PATH)
 
+    # Get hotel info from TripAdvisor
     hotels_info = {}
     for hotel in tqdm(hotels):
         hotels_info[hotel] = get_hotel_info(hotel)
     save_json(hotels_info, HOTELS_INFO_PATH)
 
+    # Create descriptions and payloads for each hotel
     texts = []
     payloads = []
     for hotel in hotels:
@@ -204,6 +260,7 @@ def create_vector_db(dataset_path, is_hf, db_path, collection_name, embeddings_m
         payloads.append(payload)
         texts.append(text)
 
+    # Create description embeddings and upsert them to the database
     openai_client = OpenAI()
     embeddings = openai_client.embeddings.create(input=texts, model=embeddings_model)
     points = [

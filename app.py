@@ -213,22 +213,28 @@ class HotelsSearchChatbot:
         user_query = st.chat_input(placeholder="Ask me anything!")
         if user_query:
             streamlit_utils.display_msg(user_query, 'user')
+
+            # add new info to the chat history
             queries = check_params(params)
             add_new_info(chat_history, queries)
 
+            # get the action and the action input based on the user's query
             chat_history.add_user_message(AGENT_USER_PROMPT.format(input=user_query))
             action_response = chain.invoke({"messages": chat_history.messages})
             chat_history.messages.pop()
-
             action, action_input = self._get_action(action_response.content)
+
             with st.chat_message("assistant"):
                 st_cb = streamlit_utils.StreamHandler(st.empty())
+
+                # create response on the user's query
                 response = self._make_action(action, action_input,
                                              retriever, chain, chat_history, {"callbacks": [st_cb]}, params)
                 chat_history.add_user_message(user_query)
                 if response is None:
                     response = 'Sorry, I cannot help you with it. Could you rephrase your question?'
                     st.markdown(response)
+
                 chat_history.add_ai_message(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
